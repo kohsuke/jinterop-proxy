@@ -1,19 +1,18 @@
 package org.kohsuke.jinterop;
 
-import org.jinterop.dcom.impls.automation.IJIDispatch;
-import org.jinterop.dcom.impls.automation.IJIEnumVariant;
-import org.jinterop.dcom.impls.JIObjectFactory;
+import org.jinterop.dcom.common.JIException;
 import org.jinterop.dcom.core.IJIComObject;
 import org.jinterop.dcom.core.JIArray;
-import org.jinterop.dcom.core.JIVariant;
 import org.jinterop.dcom.core.JIString;
-import org.jinterop.dcom.common.JIException;
+import org.jinterop.dcom.core.JIVariant;
+import org.jinterop.dcom.impls.JIObjectFactory;
+import org.jinterop.dcom.impls.automation.IJIDispatch;
+import org.jinterop.dcom.impls.automation.IJIEnumVariant;
 import org.jvnet.tiger_types.Types;
 
 import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.util.Iterator;
 
 /**
@@ -179,6 +178,8 @@ public class JInteropInvocationHandler implements InvocationHandler {
             return null;
         if(returnType==String.class)
             return v.getObjectAsString2();
+        if(returnType==boolean.class)
+            return v.getObjectAsBoolean();
 
         throw new UnsupportedOperationException(returnType.getName());
     }
