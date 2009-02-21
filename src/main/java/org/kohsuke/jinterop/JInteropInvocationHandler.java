@@ -13,6 +13,7 @@ import org.jvnet.tiger_types.Types;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Iterator;
 
 /**
@@ -27,12 +28,32 @@ public class JInteropInvocationHandler implements InvocationHandler {
         return wrap(type,(IJIDispatch) JIObjectFactory.narrowObject(obj.queryInterface(IJIDispatch.IID)));
     }
 
+    /**
+     * j-interop object that actually serves the request.
+     */
     private final IJIDispatch core;
+    /**
+     * Proxy implements this interface.
+     */
     private final Class<? extends JIProxy> interfaceType;
+
+    /**
+     * If we have a delegate implementation class, that class.
+     */
+    private final Class staticImplementation;
 
     public JInteropInvocationHandler(IJIDispatch core, Class<? extends JIProxy> interfaceType) {
         this.core = core;
         this.interfaceType = interfaceType;
+        this.staticImplementation = findStaticImplementation();
+    }
+
+    private Class findStaticImplementation() {
+        try {
+            return interfaceType.getClassLoader().loadClass(interfaceType.getName()+"$Implementation");
+        } catch (ClassNotFoundException e) {
+            return null;
+        }
     }
 
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
@@ -49,9 +70,8 @@ public class JInteropInvocationHandler implements InvocationHandler {
             return wrap((Class)args[0],core);
         }
 
-
         if(method.getDeclaringClass()==Iterable.class) {
-            // _NewEnum call'
+            // _NewEnum call
             IJIComObject object2 = core.get("_NewEnum").getObjectAsComObject();
             final IJIEnumVariant enumVARIANT = (IJIEnumVariant) JIObjectFactory.narrowObject(object2.queryInterface(IJIEnumVariant.IID));
             final Class expectedType = Types.erasure(Types.getTypeArgument(Types.getBaseClass(interfaceType,Iterable.class),0));
@@ -103,9 +123,28 @@ public class JInteropInvocationHandler implements InvocationHandler {
             return unmarshal(core.get(method.getName()),method.getReturnType());
         } else {
             // method call
+            Class<?>[] paramTypes = method.getParameterTypes();
+
+            if(staticImplementation!=null){// do we have a static implementation?
+                Class[] staticParams = new Class[paramTypes.length+1];
+                System.arraycopy(paramTypes,0,staticParams,1,paramTypes.length);
+                staticParams[0] = interfaceType;
+
+                try {
+                    Method stm = staticImplementation.getMethod(method.getName(), staticParams);
+
+                    Object[] staticArgs = new Object[staticParams.length];
+                    if(args!=null)
+                    System.arraycopy(args,0,staticArgs,1,args.length);
+                    staticArgs[0] = proxy;
+
+                    return stm.invoke(null,staticArgs);
+                } catch (NoSuchMethodException e) {
+                    // fall through
+                }
+            }
 
             // massage argument
-            Class<?>[] paramTypes = method.getParameterTypes();
             for (int i = 0; i < paramTypes.length; i++) {
                 args[i] = marshal(args[i],paramTypes[i]);
             }
