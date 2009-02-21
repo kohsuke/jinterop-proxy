@@ -138,6 +138,8 @@ public class JInteropInvocationHandler implements InvocationHandler {
             return v.getObjectAsInt();
         if(returnType==void.class)
             return null;
+        if(returnType==String.class)
+            return v.getObjectAsString2();
 
         throw new UnsupportedOperationException(returnType.getName());
     }
